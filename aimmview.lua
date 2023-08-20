@@ -1,108 +1,105 @@
-_G.enable = false -- // keep false
-_G.color = Color3.fromRGB(255,0,0) -- // color of aimviewer beam
-_G.toggle_keybind = "v" -- // key to aimview
-_G.notifier = 'b' -- // when you press will tell who its aimviewing
-_G.method = "MousePos" -- // "MousePos", "UpdateMousePos", (ONLY USE UpdateMousePos if you think they have antiaim viewer otherwise mousepos best)
+-- Configuration
+local config = {
+    enable = false, -- Keep false
+    color = Color3.fromRGB(255, 0, 0), -- Color of aimviewer beam
+    toggle_keybind = Enum.KeyCode.V,
+    notifier_keybind = Enum.KeyCode.B,
+    method = "MousePos", -- "MousePos", "UpdateMousePos"
+}
 
 if game.PlaceId == 2788229376 then
-    _G.method = "MousePos"
+    config.method = "MousePos"
 end
 
-
-
-
-
+-- Services
 local rs = game:GetService("RunService")
 local localPlayer = game.Players.LocalPlayer
 local mouse = localPlayer:GetMouse()
-local target;
 
+-- Variables
+local target
 
-
+-- Functions
 function getgun()
-    for i,v in pairs(target.Character:GetChildren()) do
-        if v and (v:FindFirstChild('Default') or v:FindFirstChild('Handle') )then
+    for _, v in pairs(target.Character:GetChildren()) do
+        if v and (v:FindFirstChild('Default') or v:FindFirstChild('Handle')) then
             return v
         end
     end
 end
 
-function sendnotifi(message)
-
-
+function sendNotification(message)
     game.StarterGui:SetCore("SendNotification", {
-        Title = '';
-        Text = message;
-        Duration = "1";
+        Title = '',
+        Text = message,
+        Duration = 1,
     })
+end
 
-    end
+function getCloset()
+    local closestPlayer, closestDistance = nil, math.huge
 
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("HumanoidRootPart") then
+            local characterPosition = player.Character.PrimaryPart.Position
+            local viewportPosition = game.Workspace.CurrentCamera:WorldToViewportPoint(characterPosition)
+            local distance = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(viewportPosition.X, viewportPosition.Y)).Magnitude
 
-function get_closet()
-    local a = math.huge
-    local b;
-
-
-
-    for i, v in pairs(game.Players:GetPlayers()) do
-        if v ~= localPlayer and v.Character and v.Character:FindFirstChild("Head") and  v.Character:FindFirstChild("HumanoidRootPart")  then
-            local c = game.Workspace.CurrentCamera:WorldToViewportPoint(v.Character.PrimaryPart.Position)
-            local d = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(c.X, c.Y)).Magnitude
-
-            if a > d then
-                b = v
-                a = d
+            if distance < closestDistance then
+                closestPlayer = player
+                closestDistance = distance
             end
         end
     end
 
-    return b
+    return closestPlayer
 end
 
-
-mouse.KeyDown:Connect(function(z)
-    if z == _G.toggle_keybind then
-        if _G.enable == false then
-            _G.enable = true
-            sendnotifi("enabled")
-        elseif _G.enable == true then
-            _G.enable = false 
-            sendnotifi("disabled")
+-- Keybinds
+mouse.KeyDown:Connect(function(key)
+    if key == config.toggle_keybind then
+        config.enable = not config.enable
+        sendNotification(config.enable and "Enabled" or "Disabled")
+    elseif key == config.notifier_keybind then
+        target = getCloset()
+        if target then
+            sendNotification("Targeting: " .. target.Name)
         end
     end
 end)
 
-mouse.KeyDown:Connect(function(z)
-    if z == _G.notifier then
-        target = get_closet()
-        sendnotifi("targeting: "..tostring(target.Name))
-    end
-end)
+-- AimViewer
+local aimViewer = Instance.new("Beam")
+aimViewer.Segments = 1
+aimViewer.Width0 = 0.2
+aimViewer.Width1 = 0.2
+aimViewer.Color = ColorSequence.new(config.color)
+aimViewer.FaceCamera = true
 
-local a=Instance.new("Beam")a.Segments=1;a.Width0=0.2;a.Width1=0.2;a.Color=ColorSequence.new(_G.color)a.FaceCamera=true;local b=Instance.new("Attachment")local c=Instance.new("Attachment")a.Attachment0=b;a.Attachment1=c;a.Parent=workspace.Terrain;b.Parent=workspace.Terrain;c.Parent=workspace.Terrain
+local attachment0 = Instance.new("Attachment")
+local attachment1 = Instance.new("Attachment")
+aimViewer.Attachment0 = attachment0
+aimViewer.Attachment1 = attachment1
 
+aimViewer.Parent = workspace.Terrain
+attachment0.Parent = workspace.Terrain
+attachment1.Parent = workspace.Terrain
+
+-- Rendering
 task.spawn(function()
     rs.RenderStepped:Connect(function()
- 
-    local character = localPlayer.Character
+        local character = localPlayer.Character
         if not character then
-        a.Enabled = false
-        return
-    end
+            aimViewer.Enabled = false
+            return
+        end
 
-
- 
-
-
-
-    if _G.enable  and getgun() and target.Character:FindFirstChild("BodyEffects") and target.Character:FindFirstChild("Head")  then
-        a.Enabled = true
-        b.Position =  target.Character:FindFirstChild("Head").Position
-        c.Position = target.Character.BodyEffects[_G.method].Value -- // change ONLY if a game has different name
-    else
-        a.Enabled = false
-    end
-
+        if config.enable and getgun() and target and target.Character:FindFirstChild("BodyEffects") and target.Character:FindFirstChild("Head") then
+            aimViewer.Enabled = true
+            attachment0.Position = target.Character:FindFirstChild("Head").Position
+            attachment1.Position = target.Character.BodyEffects[config.method].Value
+        else
+            aimViewer.Enabled = false
+        end
     end)
 end)
